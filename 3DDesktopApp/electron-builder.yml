@@ -1,0 +1,36 @@
+appId: com.3d-scene-generator.app
+productName: 3D Scene Generator
+directories:
+  output: release
+files:
+  - electron/**/*
+  - frontend/dist/**/*
+  - backend/**/*.py
+  - backend/**/requirements.txt
+  - backend/agent_service/package.json
+  - backend/agent_service/index.mjs
+  - backend/agent_service/systemPrompt.js
+  - backend/.env.example
+  - backend/.env
+  - "!backend/venv/**"
+  - "!backend/__pycache__/**"
+  - "!backend/history.db"
+  - "!frontend/node_modules/**"
+  - "!**/*.map"
+extraResources:
+  - from: backend/venv/
+    to: backend/venv/
+    filter:
+      - "**/*"
+win:
+  target:
+    - nsis
+  icon: electron/assets/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 3D Scene Generator
+  installerIcon: electron/assets/icon.png
+  uninstallerIcon: electron/assets/icon.png

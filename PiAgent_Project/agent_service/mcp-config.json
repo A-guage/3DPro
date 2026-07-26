@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "unrealMCP": {
+      "command": "python",
+      "args": [
+        "d:/3DPro/unreal-mcp-main/Python/unreal_mcp_server.py"
+      ]
+    }
+  }
+}
