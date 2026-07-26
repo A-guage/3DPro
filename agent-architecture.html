@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SceneSynth 智能体架构</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, sans-serif;
+    background: #0c0e1a;
+    display: flex;
+    justify-content: center;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  .canvas {
+    width: 1200px;
+    min-height: 1800px;
+    background: linear-gradient(180deg, #0c0e1a 0%, #111427 40%, #0c0e1a 100%);
+    position: relative;
+    overflow: hidden;
+    padding: 50px 40px 60px;
+  }
+
+  .canvas::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 20% 15%, rgba(99,102,241,0.08), transparent),
+      radial-gradient(ellipse 500px 350px at 80% 60%, rgba(6,182,212,0.06), transparent),
+      radial-gradient(ellipse 400px 300px at 50% 90%, rgba(168,85,247,0.05), transparent);
+    pointer-events: none;
+  }
+
+  /* ── 标题 ── */
+  .header {
+    text-align: center;
+    margin-bottom: 50px;
+    position: relative;
+  }
+
+  .header h1 {
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+
+  .header h1 .scene { color: #c7d2fe; }
+  .header h1 .synth { color: #818cf8; }
+
+  .header .tagline {
+    font-size: 14px;
+    color: #64748b;
+    letter-spacing: 6px;
+    font-weight: 300;
+    text-transform: uppercase;
+  }
+
+  .header .cn-subtitle {
+    font-size: 15px;
+    color: #94a3b8;
+    margin-top: 8px;
+    font-weight: 400;
+    letter-spacing: 1px;
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #6366f1, transparent);
+  }
+
+  /* ── 通用组件 ── */
+  .layer {
+    position: relative;
+    margin-bottom: 0;
+  }
+
+  .layer-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-left: 4px;
+  }
+
+  .layer-label::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 2px;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .layer-label.green::before { background: #10b981; }
+  .layer-label.blue::before { background: #3b82f6; }
+  .layer-label.purple::before { background: #8b5cf6; }
+  .layer-label.amber::before { background: #f59e0b; }
+  .layer-label.cyan::before { background: #06b6d4; }
+  .layer-label.rose::before { background: #f43f5e; }
+
+  .row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: stretch;
+  }
+
+  .box {
+    border-radius: 12px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .box .title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .box .desc {
+    font-size: 11px;
+    color: inherit;
+    opacity: 0.7;
+    line-height: 1.6;
+  }
+
+  .box .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── 连接线 ── */
+  .connector {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+    position: relative;
+  }
+
+  .connector .line {
+    width: 2px;
+    height: 36px;
+    background: linear-gradient(180deg, rgba(99,102,241,0.4), rgba(99,102,241,0.1));
+  }
+
+  .connector .dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #6366f1;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(99,102,241,0.5);
+  }
+
+  .connector-label {
+    position: absolute;
+    right: calc(50% + 20px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: #475569;
+    white-space: nowrap;
+  }
+
+  /* ── 分支连接 ── */
+  .branch-connector {
+    position: relative;
+    height: 50px;
+    margin-bottom: 0;
+  }
+
+  .branch-connector .trunk {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 2px;
+    height: 18px;
+    background: rgba(99,102,241,0.4);
+    transform: translateX(-50%);
+  }
+
+  .branch-connector .branch-line {
+    position: absolute;
+    top: 18px;
+    height: 2px;
+    background: rgba(99,102,241,0.25);
+  }
+
+  .branch-connector .branch-line.left {
+    left: calc(50% - 340px);
+    width: calc(340px - 10px);
+  }
+
+  .branch-connector .branch-line.right {
+    left: calc(50% + 10px);
+    width: calc(340px - 10px);
+  }
+
+  .branch-connector .branch-drop {
+    position: absolute;
+    top: 16px;
+    width: 2px;
+    height: 14px;
+    background: rgba(99,102,241,0.25);
+  }
+
+  .branch-connector .branch-drop.left { left: calc(50% - 340px); }
+  .branch-connector .branch-drop.right { right: calc(50% - 340px); }
+
+  .branch-connector .branch-drop.mid-left { left: calc(50% - 170px); }
+  .branch-connector .branch-drop.mid-right { right: calc(50% - 170px); }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 1: 用户层                            */
+  /* ════════════════════════════════════════ */
+  .user-box {
+    background: rgba(16,185,129,0.08);
+    border: 1.5px solid rgba(16,185,129,0.25);
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    text-align: center;
+    color: #6ee7b7;
+  }
+
+  .user-box .title { justify-content: center; }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 2: 四大场景前端                      */
+  /* ════════════════════════════════════════ */
+  .studio-card {
+    flex: 1;
+    text-align: center;
+    border: 1.5px solid;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .studio-card .icon {
+    font-size: 26px;
+    margin-bottom: 6px;
+  }
+
+  .studio-card .studio-name {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .studio-card .studio-desc {
+    font-size: 10px;
+    opacity: 0.6;
+    line-height: 1.4;
+  }
+
+  .studio-card.game {
+    background: rgba(168,85,247,0.06);
+    border-color: rgba(168,85,247,0.3);
+    color: #c4b5fd;
+  }
+
+  .studio-card.edu {
+    background: rgba(16,185,129,0.06);
+    border-color: rgba(16,185,129,0.3);
+    color: #6ee7b7;
+  }
+
+  .studio-card.ind {
+    background: rgba(59,130,246,0.06);
+    border-color: rgba(59,130,246,0.3);
+    color: #93c5fd;
+  }
+
+  .studio-card.uni {
+    background: rgba(245,158,11,0.06);
+    border-color: rgba(245,158,11,0.3);
+    color: #fcd34d;
+  }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 3: Gateway + Lead Agent             */
+  /* ════════════════════════════════════════ */
+  .gateway-box {
+    background: rgba(99,102,241,0.06);
+    border: 2px solid rgba(99,102,241,0.25);
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    color: #c7d2fe;
+  }
+
+  .gateway-box .title {
+    font-size: 15px;
+    font-weight: 800;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .gateway-box .title .badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: rgba(99,102,241,0.2);
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+
+  .middleware-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 10px;
+  }
+
+  .middleware-chip {
+    font-size: 9px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.15);
+    color: #a5b4fc;
+  }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 4: Agent 思考过程                    */
+  /* ════════════════════════════════════════ */
+  .think-box {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    background: rgba(30,27,75,0.6);
+    border: 1.5px solid rgba(129,140,248,0.2);
+    border-radius: 14px;
+    padding: 22px 26px;
+  }
+
+  .think-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #818cf8;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .think-title::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    border: 2px solid #818cf8;
+    border-radius: 2px;
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .think-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    justify-content: center;
+  }
+
+  .think-step {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    text-align: left;
+  }
+
+  .think-step .step-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .think-step .step-text {
+    font-size: 10.5px;
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+
+  .think-step.think {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.2);
+    color: #fcd34d;
+  }
+
+  .think-step.act {
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.2);
+    color: #93c5fd;
+  }
+
+  .think-step.obs {
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.2);
+    color: #6ee7b7;
+  }
+
+  .think-step-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: #475569;
+    font-size: 14px;
+  }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 5: 工具 + MCP + API                  */
+  /* ════════════════════════════════════════ */
+  .tools-layer {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .tools-panel {
+    flex: 1.2;
+    background: rgba(99,102,241,0.04);
+    border: 1.5px solid rgba(99,102,241,0.15);
+    border-radius: 14px;
+    padding: 18px 16px;
+    color: #c7d2fe;
+  }
+
+  .tools-panel .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .tool-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: rgba(30,27,75,0.5);
+    border-radius: 8px;
+    border: 1px solid rgba(99,102,241,0.1);
+    transition: all 0.2s;
+  }
+
+  .tool-item .tool-name {
+    font-size: 10.5px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    color: #a5b4fc;
+    flex: 1;
+  }
+
+  .tool-item .tool-desc {
+    font-size: 9.5px;
+    color: #64748b;
+  }
+
+  .tool-item .tool-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tool-dot.core { background: #6366f1; }
+  .tool-dot.asset { background: #8b5cf6; }
+  .tool-dot.scene { background: #a855f7; }
+
+  .mcp-panel {
+    flex: 0.8;
+    background: rgba(6,182,212,0.04);
+    border: 1.5px solid rgba(6,182,212,0.15);
+    border-radius: 14px;
+    padding: 18px 16px;
+    color: #a5f3fc;
+  }
+
+  .mcp-panel .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mcp-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background: rgba(6,182,212,0.06);
+    border-radius: 8px;
+    border: 1px solid rgba(6,182,212,0.12);
+    margin-bottom: 6px;
+  }
+
+  .mcp-item .mcp-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #67e8f9;
+  }
+
+  .mcp-item .mcp-detail {
+    font-size: 9.5px;
+    color: #5eead4;
+    opacity: 0.7;
+  }
+
+  .mcp-protocol {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .mcp-protocol .proto-tag {
+    font-size: 8px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .proto-tag.stdio { background: rgba(6,182,212,0.15); color: #67e8f9; border: 1px solid rgba(6,182,212,0.2); }
+  .proto-tag.http { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.2); }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 6: Provider                          */
+  /* ════════════════════════════════════════ */
+  .provider-box {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    background: rgba(245,158,11,0.04);
+    border: 1.5px solid rgba(245,158,11,0.15);
+    border-radius: 14px;
+    padding: 18px 26px;
+    color: #fcd34d;
+  }
+
+  .provider-box .title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    justify-content: center;
+    color: #fbbf24;
+  }
+
+  .provider-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .provider-item {
+    padding: 10px 16px;
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.15);
+    border-radius: 8px;
+    text-align: center;
+    min-width: 140px;
+  }
+
+  .provider-item .p-name {
+    font-size: 11px;
+    font-weight: 700;
+    color: #fbbf24;
+    margin-bottom: 2px;
+  }
+
+  .provider-item .p-detail {
+    font-size: 9px;
+    color: #92400e;
+    opacity: 0.7;
+  }
+
+  /* ════════════════════════════════════════ */
+  /* 层级 7: 输出层                            */
+  /* ════════════════════════════════════════ */
+  .output-layer {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .output-card {
+    flex: 1;
+    text-align: center;
+    border-radius: 14px;
+    padding: 20px 14px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .output-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
+    background: repeating-conic-gradient(
+      rgba(255,255,255,0.1) 0% 25%, transparent 0% 50%
+    ) 50% / 20px 20px;
+  }
+
+  .output-card .o-icon { font-size: 30px; margin-bottom: 8px; position: relative; }
+  .output-card .o-title { font-size: 13px; font-weight: 700; position: relative; }
+  .output-card .o-desc { font-size: 10px; opacity: 0.7; margin-top: 4px; position: relative; }
+
+  .output-card.preview {
+    background: linear-gradient(135deg, rgba(99,102,241,0.9), rgba(79,70,229,0.9));
+    box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+  }
+
+  .output-card.vr {
+    background: linear-gradient(135deg, rgba(16,185,129,0.9), rgba(5,150,105,0.9));
+    box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+  }
+
+  .output-card.export {
+    background: linear-gradient(135deg, rgba(6,182,212,0.9), rgba(8,145,178,0.9));
+    box-shadow: 0 4px 20px rgba(6,182,212,0.3);
+  }
+
+  .output-card.engine {
+    background: linear-gradient(135deg, rgba(168,85,247,0.9), rgba(147,51,234,0.9));
+    box-shadow: 0 4px 20px rgba(168,85,247,0.3);
+  }
+
+  /* ── 特性横幅 ── */
+  .features-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+
+  .feature-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+  }
+
+  .feature-tag.f1 { background: rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.2); color: #a5b4fc; }
+  .feature-tag.f2 { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2); color: #6ee7b7; }
+  .feature-tag.f3 { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); color: #fcd34d; }
+  .feature-tag.f4 { background: rgba(244,63,94,0.08); border-color: rgba(244,63,94,0.2); color: #fda4af; }
+  .feature-tag.f5 { background: rgba(6,182,212,0.08); border-color: rgba(6,182,212,0.2); color: #a5f3fc; }
+
+  /* ── 循环箭头指示器 ── */
+  .loop-indicator {
+    position: absolute;
+    right: 20px;
+    top: 520px;
+    width: 40px;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .loop-indicator .loop-line {
+    width: 1.5px;
+    flex: 1;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(129,140,248,0.3) 0px,
+      rgba(129,140,248,0.3) 3px,
+      transparent 3px,
+      transparent 7px
+    );
+  }
+
+  .loop-indicator .loop-arrow {
+    font-size: 10px;
+    color: #6366f1;
+    writing-mode: vertical-rl;
+    letter-spacing: 3px;
+    font-weight: 500;
+  }
+
+  /* ── 树状分支连接线 ── */
+  .tree-connector {
+    position: relative;
+    height: 40px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .tree-connector .trunk-top {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 2px;
+    height: 16px;
+    background: rgba(99,102,241,0.3);
+    transform: translateX(-50%);
+  }
+
+  .tree-connector .crossbar {
+    position: absolute;
+    top: 16px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: rgba(99,102,241,0.2);
+  }
+
+  .tree-connector .drop {
+    position: absolute;
+    top: 16px;
+    width: 2px;
+    height: 24px;
+    background: rgba(99,102,241,0.2);
+  }
+
+  .tree-connector .drop:nth-child(3) { left: 10%; }
+  .tree-connector .drop:nth-child(4) { left: calc(10% + (80% / 3)); }
+  .tree-connector .drop:nth-child(5) { left: calc(10% + (80% * 2 / 3)); }
+  .tree-connector .drop:nth-child(6) { left: 90%; }
+
+  .tree-connector .dot-node {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #6366f1;
+    top: 14px;
+    transform: translate(-50%, 0);
+  }
+
+  /* ── 汇聚连接 ── */
+  .merge-connector {
+    position: relative;
+    height: 40px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .merge-connector .rise {
+    position: absolute;
+    width: 2px;
+    height: 24px;
+    background: rgba(99,102,241,0.2);
+    bottom: 16px;
+  }
+
+  .merge-connector .crossbar {
+    position: absolute;
+    bottom: 16px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: rgba(99,102,241,0.2);
+  }
+
+  .merge-connector .trunk-bottom {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 2px;
+    height: 16px;
+    background: rgba(99,102,241,0.3);
+    transform: translateX(-50%);
+  }
+</style>
+</head>
+<body>
+
+<div class="canvas">
+
+  <!-- ═══ 标题 ═══ -->
+  <div class="header">
+    <h1><span class="scene">Scene</span><span class="synth">Synth</span> 智能体架构</h1>
+    <div class="tagline">Multi-Agent 3D World Builder</div>
+    <div class="cn-subtitle">基于大模型协同的元宇宙场景自动化生成系统</div>
+  </div>
+
+  <!-- ═══ L1: 用户层 ═══ -->
+  <div class="layer">
+    <div class="layer-label green">用户交互层</div>
+    <div class="row">
+      <div class="box user-box">
+        <div class="title" style="color:#6ee7b7; justify-content:center;">👤 用户自然语言输入</div>
+        <div class="desc" style="color:#6ee7b7;">
+          "帮我创建一个中世纪城堡庭院" / "搭建太阳系行星模型" / "设计汽车发动机装配线"
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 连接 -->
+  <div class="connector"><div class="line"></div><div class="dot"></div></div>
+
+  <!-- ═══ L2: 四大场景前端 ═══ -->
+  <div class="layer">
+    <div class="layer-label purple">场景前端层 — 四大垂直领域独立工作室</div>
+    <div class="row">
+      <div class="box studio-card game">
+        <div class="icon">🎮</div>
+        <div class="studio-name">游戏场景工作室</div>
+        <div class="studio-desc">关卡 · 资产 · 环境<br>快速原型到成品</div>
+      </div>
+      <div class="box studio-card edu">
+        <div class="icon">🎓</div>
+        <div class="studio-name">教育场景工作室</div>
+        <div class="studio-desc">VR沉浸 · 历史重现<br>科学实验 · 虚拟课堂</div>
+      </div>
+      <div class="box studio-card ind">
+        <div class="icon">🏭</div>
+        <div class="studio-name">工业仿真工作室</div>
+        <div class="studio-desc">工厂布局 · 设备仿真<br>爆炸/截面视图 · 3D打印</div>
+      </div>
+      <div class="box studio-card uni">
+        <div class="icon">🌐</div>
+        <div class="studio-name">通用场景工作台</div>
+        <div class="studio-desc">展览展示 · 建筑设计<br>数字孪生 · 自由配置</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 汇聚连接 -->
+  <div class="merge-connector">
+    <div class="rise" style="left:10%"></div>
+    <div class="rise" style="left:calc(10% + (80% / 3))"></div>
+    <div class="rise" style="left:calc(10% + (80% * 2 / 3))"></div>
+    <div class="rise" style="left:90%"></div>
+    <div class="crossbar"></div>
+    <div class="trunk-bottom"></div>
+  </div>
+
+  <!-- ═══ L3: Gateway + Lead Agent ═══ -->
+  <div class="layer">
+    <div class="layer-label blue">Agent 调度中枢 — DeerFlow 多智能体引擎</div>
+    <div class="row">
+      <div class="box gateway-box">
+        <div class="title">
+          <span style="font-size:20px">🤖</span>
+          Lead Agent
+          <span class="badge">LANGGRAPH</span>
+        </div>
+        <div class="desc" style="text-align:center; max-width:600px; margin:0 auto;">
+          统一调度中心：接收用户意图 → 分析场景类型 → 路由到对应垂直 Agent 或直接调用工具
+        </div>
+        <div class="middleware-row">
+          <span class="middleware-chip">ThreadData</span>
+          <span class="middleware-chip">Sandbox</span>
+          <span class="middleware-chip">Memory</span>
+          <span class="middleware-chip">TodoList</span>
+          <span class="middleware-chip">Loop Detection</span>
+          <span class="middleware-chip">Title</span>
+          <span class="middleware-chip">Token Usage</span>
+          <span class="middleware-chip">Clarification</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分支连接 -->
+  <div class="branch-connector">
+    <div class="trunk"></div>
+    <div class="branch-line left"></div>
+    <div class="branch-line right"></div>
+    <div class="branch-drop left"></div>
+    <div class="branch-drop right"></div>
+  </div>
+
+  <!-- ═══ L4: Agent 思考 + 垂直Agent + MCP工具 ═══ -->
+  <div class="layer" style="padding: 0 0;">
+
+    <!-- ReAct 思考过程 -->
+    <div style="margin-bottom: 20px;">
+      <div class="layer-label amber" style="padding-left:4px;">Agent 推理循环 — ReAct 模式</div>
+      <div class="think-box">
+        <div class="think-title">Thinking Loop</div>
+        <div class="think-flow">
+          <div class="think-step think">
+            <div class="step-label">💭 Thinking</div>
+            <div class="step-text">分析用户意图 → 确定场景领域<br>判断需要哪些 3D 物体<br>规划生成优先级与数量</div>
+          </div>
+          <div class="think-step-arrow">→</div>
+          <div class="think-step act">
+            <div class="step-label">⚡ Action</div>
+            <div class="step-text">调用 plan_scene 分解场景<br>调用 generate 逐个生成<br>或委派 sub-agent 执行</div>
+          </div>
+          <div class="think-step-arrow">→</div>
+          <div class="think-step obs">
+            <div class="step-label">👁 Observation</div>
+            <div class="step-text">接收工具返回结果<br>检查生成状态<br>更新场景清单</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 工具层: 左=垂直Agent, 中=MCP Server, 右=引擎 -->
+    <div style="display:flex; gap:16px; width:100%; max-width:960px; margin:0 auto;">
+
+      <!-- 垂直 Agent -->
+      <div class="tools-panel" style="flex:0.85;">
+        <div class="panel-title" style="color:#a5b4fc;">
+          <span style="font-size:12px">👥</span> Sub-Agents 垂直智能体
+        </div>
+        <div class="tool-list">
+          <div class="tool-item">
+            <span class="tool-dot" style="background:#a855f7"></span>
+            <span class="tool-name" style="color:#c4b5fd">game-designer</span>
+            <span class="tool-desc">游戏场景</span>
+          </div>
+          <div class="tool-item">
+            <span class="tool-dot" style="background:#10b981"></span>
+            <span class="tool-name" style="color:#6ee7b7">edu-designer</span>
+            <span class="tool-desc">教学场景</span>
+          </div>
+          <div class="tool-item">
+            <span class="tool-dot" style="background:#3b82f6"></span>
+            <span class="tool-name" style="color:#93c5fd">ind-designer</span>
+            <span class="tool-desc">工业仿真</span>
+          </div>
+          <div class="tool-item" style="opacity:0.6;">
+            <span class="tool-dot" style="background:#f59e0b"></span>
+            <span class="tool-name" style="color:#fcd34d">default</span>
+            <span class="tool-desc">通用场景</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; padding:8px 10px; background:rgba(99,102,241,0.06); border-radius:8px; border:1px dashed rgba(99,102,241,0.15);">
+          <div style="font-size:9px; color:#818cf8; font-weight:600; margin-bottom:4px;">SOUL.md 人格定义</div>
+          <div style="font-size:9px; color:#64748b; line-height:1.5;">每个 Agent 拥有独立的<br>角色定义、工作流程、专业指南</div>
+        </div>
+      </div>
+
+      <!-- MCP Server -->
+      <div class="mcp-panel" style="flex:1.1;">
+        <div class="panel-title" style="color:#67e8f9;">
+          <span style="font-size:12px">🔧</span> scene3d-mcp-server
+        </div>
+
+        <div class="mcp-item">
+          <div class="mcp-name">scene3d_generate</div>
+          <div class="mcp-detail">提交 3D 生成任务（单物体/多物体场景）</div>
+        </div>
+        <div class="mcp-item">
+          <div class="mcp-name">scene3d_plan_scene</div>
+          <div class="mcp-detail">场景规划 → 返回结构化清单供前端渲染</div>
+        </div>
+        <div class="mcp-item">
+          <div class="mcp-name">scene3d_status</div>
+          <div class="mcp-detail">轮询生成进度</div>
+        </div>
+        <div class="mcp-item">
+          <div class="mcp-name">scene3d_manage_asset</div>
+          <div class="mcp-detail">资产 CRUD · 分类 · 标签</div>
+        </div>
+
+        <div class="mcp-protocol">
+          <span class="proto-tag stdio">STDIO · Agent</span>
+          <span class="proto-tag http">HTTP · 前端</span>
+        </div>
+
+        <div style="margin-top:10px; padding:8px 10px; background:rgba(6,182,212,0.06); border-radius:8px; border:1px dashed rgba(6,182,212,0.15);">
+          <div style="font-size:9px; color:#67e8f9; font-weight:600; margin-bottom:4px;">双协议架构</div>
+          <div style="font-size:9px; color:#5eead4; opacity:0.7; line-height:1.5;">Agent 通过 stdio 调用<br>前端通过 HTTP 代理查询</div>
+        </div>
+      </div>
+
+      <!-- 引擎集成 -->
+      <div class="tools-panel" style="flex:0.7; background:rgba(168,85,247,0.04); border-color:rgba(168,85,247,0.15); color:#ddd6fe;">
+        <div class="panel-title" style="color:#c4b5fd;">
+          <span style="font-size:12px">⚙️</span> 引擎集成
+        </div>
+        <div class="tool-list">
+          <div class="tool-item" style="border-color:rgba(168,85,247,0.12);">
+            <span class="tool-name" style="color:#c4b5fd">Unreal Engine 5.5</span>
+          </div>
+          <div class="tool-item" style="border-color:rgba(168,85,247,0.12);">
+            <span class="tool-name" style="color:#c4b5fd">Blender</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; padding:8px 10px; background:rgba(168,85,247,0.06); border-radius:8px; border:1px dashed rgba(168,85,247,0.15);">
+          <div style="font-size:9px; color:#c4b5fd; font-weight:600; margin-bottom:4px;">MCP 直连</div>
+          <div style="font-size:9px; color:#a78bfa; opacity:0.7; line-height:1.5;">引擎操作 MCP<br>36+ 工具 · GraphQL</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 汇聚连接 -->
+  <div style="height:20px;"></div>
+
+  <!-- ═══ L5: 3D Provider ═══ -->
+  <div class="layer">
+    <div class="layer-label cyan">3D 生成引擎 — 可插拔 Provider 架构</div>
+    <div class="row">
+      <div class="box provider-box" style="max-width:820px;">
+        <div class="title" style="justify-content:center; margin-bottom:12px;">
+          <span style="font-size:14px">☁️</span>
+          3D Generation Provider
+        </div>
+        <div class="provider-row">
+          <div class="provider-item">
+            <div class="p-name">腾讯混元 3D</div>
+            <div class="p-detail">Hunyuan Rapid API</div>
+          </div>
+          <div class="provider-item" style="opacity:0.4;">
+            <div class="p-name">TriPO</div>
+            <div class="p-detail">可扩展</div>
+          </div>
+          <div class="provider-item" style="opacity:0.4;">
+            <div class="p-name">Meshy</div>
+            <div class="p-detail">可扩展</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 连接 -->
+  <div class="connector"><div class="line"></div><div class="dot"></div></div>
+
+  <!-- ═══ L6: 输出层 ═══ -->
+  <div class="layer">
+    <div class="layer-label rose">输出与展示</div>
+    <div class="row">
+      <div class="output-card preview">
+        <div class="o-icon">🧊</div>
+        <div class="o-title">3D 视口预览</div>
+        <div class="o-desc">Three.js 实时渲染</div>
+      </div>
+      <div class="output-card vr">
+        <div class="o-icon">🥽</div>
+        <div class="o-title">VR 沉浸体验</div>
+        <div class="o-desc">教学场景沉浸预览</div>
+      </div>
+      <div class="output-card export">
+        <div class="o-icon">📦</div>
+        <div class="o-title">模型文件导出</div>
+        <div class="o-desc">GLB / FBX / STL / 3MF</div>
+      </div>
+      <div class="output-card engine">
+        <div class="o-icon">🎮</div>
+        <div class="o-title">引擎场景搭建</div>
+        <div class="o-desc">Unreal / Blender</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 特性标签 ═══ -->
+  <div class="features-row">
+    <div class="feature-tag f1">🤖 多智能体协同</div>
+    <div class="feature-tag f2">🔗 MCP 标准协议</div>
+    <div class="feature-tag f3">⚡ 效率提升 9×</div>
+    <div class="feature-tag f4">🧠 ReAct 推理循环</div>
+    <div class="feature-tag f5">🔌 可插拔 Provider</div>
+  </div>
+
+</div>
+
+</body>
+</html>

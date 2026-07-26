@@ -93,3 +93,36 @@ DerivedDataCache/
 
 # Trae AI
 .trae/
+
+# Secrets and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+secrets.yml
+secrets.yaml
+
+# Lock files (regenerated)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Docker
+docker/.cache/
+sandbox_image_cache.tar
+
+# Pre-commit hooks (local only)
+.githooks/
+
+# DeerFlow internal
+.deer-flow/
+.claude/
+.omc/
+config.yaml
+mcp_config.json
+extensions_config.json
+pr-build/
+.gstack/
+.worktrees
